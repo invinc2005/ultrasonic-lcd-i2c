@@ -1,0 +1,225 @@
+C51 COMPILER V9.60.7.0   LED_TEST                                                          04/09/2025 22:17:14 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE LED_TEST
+OBJECT MODULE PLACED IN .\Objects\LED_TEST.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE LED_TEST.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\
+                    -LED_TEST.lst) TABS(2) OBJECT(.\Objects\LED_TEST.obj)
+
+line level    source
+
+   1          #include <reg51.h>
+   2          #include <intrins.h>
+   3          #include <stdio.h>
+   4          
+   5          // I2C LCD Pins
+   6          sbit SDA = P0^7;
+   7          sbit SCL = P0^6;
+   8          
+   9          // Ultrasonic Sensor Pins
+  10          sbit TRIG = P3^2;
+  11          sbit ECHO = P3^3;
+  12          
+  13          void i2c_start(void);
+  14          void i2c_stop(void);
+  15          void i2c_ACK(void);
+  16          void i2c_write(unsigned char);
+  17          void lcd_send_cmd(unsigned char);
+  18          void lcd_send_data(unsigned char);
+  19          void lcd_send_str(unsigned char *);
+  20          void lcd_slave(unsigned char);
+  21          void delay_ms(unsigned int);
+  22          void send_trigger();
+  23          unsigned int measure_distance();
+  24          void int_to_string(unsigned int, char *);
+  25          
+  26          unsigned char slave1 = 0x4E;
+  27          unsigned char slave_add;
+  28          
+  29          //  I2C Start Condition 
+  30          void i2c_start(void) {
+  31   1          SDA = 1; _nop_(); _nop_();
+  32   1          SCL = 1; _nop_(); _nop_();
+  33   1          SDA = 0; _nop_(); _nop_();
+  34   1      }
+  35          
+  36          //  I2C Stop Condition 
+  37          void i2c_stop(void) {
+  38   1          SCL = 0;
+  39   1          SDA = 0;
+  40   1          SCL = 1;
+  41   1          SDA = 1;
+  42   1      }
+  43          
+  44          //  Set LCD Slave Address 
+  45          void lcd_slave(unsigned char slave) {
+  46   1          slave_add = slave;
+  47   1      }
+  48          
+  49          //  I2C ACK 
+  50          void i2c_ACK(void) {
+  51   1          SCL = 0;
+  52   1          SDA = 1;
+  53   1          SCL = 1;
+  54   1          while(SDA);
+C51 COMPILER V9.60.7.0   LED_TEST                                                          04/09/2025 22:17:14 PAGE 2   
+
+  55   1      }
+  56          
+  57          //  I2C Write Byte 
+  58          void i2c_write(unsigned char dat) {
+  59   1          unsigned char i;
+  60   1          for(i = 0; i < 8; i++) {
+  61   2              SCL = 0;
+  62   2              SDA = (dat & (0x80 >> i)) ? 1 : 0;
+  63   2              SCL = 1;
+  64   2          }
+  65   1      }
+  66          
+  67          //  Send Command to LCD via I2C 
+  68          void lcd_send_cmd(unsigned char cmd) {
+  69   1          unsigned char cmd_l, cmd_u;
+  70   1          cmd_l = (cmd << 4) & 0xF0;
+  71   1          cmd_u = (cmd & 0xF0);
+  72   1          
+  73   1          i2c_start();
+  74   1          i2c_write(slave_add);
+  75   1          i2c_ACK();
+  76   1          i2c_write(cmd_u | 0x0C);
+  77   1          i2c_ACK();
+  78   1          delay_ms(1);
+  79   1          i2c_write(cmd_u | 0x08);
+  80   1          i2c_ACK();
+  81   1          delay_ms(10);
+  82   1          i2c_write(cmd_l | 0x0C);
+  83   1          i2c_ACK();
+  84   1          delay_ms(1);
+  85   1          i2c_write(cmd_l | 0x08);
+  86   1          i2c_ACK();
+  87   1          delay_ms(10);
+  88   1          i2c_stop();
+  89   1      }
+  90          
+  91          //  Send Data to LCD via I2C 
+  92          void lcd_send_data(unsigned char dataw) {
+  93   1          unsigned char dataw_l, dataw_u;
+  94   1          dataw_l = (dataw << 4) & 0xF0;
+  95   1          dataw_u = (dataw & 0xF0);
+  96   1          
+  97   1          i2c_start();
+  98   1          i2c_write(slave_add);
+  99   1          i2c_ACK();
+ 100   1          i2c_write(dataw_u | 0x0D);
+ 101   1          i2c_ACK();
+ 102   1          delay_ms(1);
+ 103   1          i2c_write(dataw_u | 0x09);
+ 104   1          i2c_ACK();
+ 105   1          delay_ms(10);
+ 106   1          i2c_write(dataw_l | 0x0D);
+ 107   1          i2c_ACK();
+ 108   1          delay_ms(1);
+ 109   1          i2c_write(dataw_l | 0x09);
+ 110   1          i2c_ACK();
+ 111   1          delay_ms(10);
+ 112   1          i2c_stop();
+ 113   1      }
+ 114          
+ 115          //  Send String to LCD 
+ 116          void lcd_send_str(unsigned char *p) {
+C51 COMPILER V9.60.7.0   LED_TEST                                                          04/09/2025 22:17:14 PAGE 3   
+
+ 117   1          while(*p != '\0') {
+ 118   2              lcd_send_data(*p++);
+ 119   2          }
+ 120   1      }
+ 121          
+ 122          //  Delay Function 
+ 123          void delay_ms(unsigned int n) {
+ 124   1          unsigned int m;
+ 125   1          for(; n > 0; n--) {
+ 126   2              for(m = 121; m > 0; m--);
+ 127   2              _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_();
+ 128   2          }
+ 129   1      }
+ 130          
+ 131          //  LCD Initialization 
+ 132          void lcd_init() {
+ 133   1          lcd_send_cmd(0x02);  // Return home
+ 134   1          lcd_send_cmd(0x28);  // 4-bit mode
+ 135   1          lcd_send_cmd(0x0C);  // Display On, Cursor Off
+ 136   1          lcd_send_cmd(0x06);  // Increment Cursor (Shift cursor to right)
+ 137   1          lcd_send_cmd(0x01);  // Clear Display
+ 138   1      }
+ 139          
+ 140          //  Send Trigger Pulse to Ultrasonic Sensor 
+ 141          void send_trigger() {
+ 142   1          TRIG = 1;
+ 143   1          delay_ms(1);
+ 144   1          TRIG = 0;
+ 145   1      }
+ 146          
+ 147          //  Measure Distance Using Timer 
+ 148          unsigned int measure_distance() {
+ 149   1          unsigned int time;
+ 150   1          
+ 151   1          send_trigger();
+ 152   1          
+ 153   1          while (!ECHO);  // Wait for Echo HIGH
+ 154   1          TH0 = 0;
+ 155   1          TL0 = 0;
+ 156   1          TR0 = 1;  // Start Timer
+ 157   1          
+ 158   1          while (ECHO);  // Wait for Echo LOW
+ 159   1          TR0 = 0;  // Stop Timer
+ 160   1          
+ 161   1          time = (TH0 << 5) | TL0;
+ 162   1          return (time / 58);  // Convert to cm
+ 163   1      }
+ 164          
+ 165          //  Convert Integer to String (Replaces sprintf()) 
+ 166          void int_to_string(unsigned int num, char *str) {
+ 167   1          str[0] = (num / 100) + '0';
+ 168   1          str[1] = ((num / 10) % 10) + '0';
+ 169   1          str[2] = (num % 10) + '0';
+ 170   1          str[3] = 'c';
+ 171   1          str[4] = 'm';
+ 172   1          str[5] = '\0';
+ 173   1      }
+ 174          
+ 175          //  Main Function 
+ 176          void main(void) {
+ 177   1          unsigned int distance;
+ 178   1          char distance_str[6];
+C51 COMPILER V9.60.7.0   LED_TEST                                                          04/09/2025 22:17:14 PAGE 4   
+
+ 179   1      
+ 180   1          lcd_slave(slave1);
+ 181   1          lcd_init();
+ 182   1          
+ 183   1          lcd_send_cmd(0x80);
+ 184   1          lcd_send_str(" Distance: ");
+ 185   1          
+ 186   1          while(1) {
+ 187   2              distance = measure_distance();
+ 188   2              int_to_string(distance, distance_str);
+ 189   2      
+ 190   2              lcd_send_cmd(0xC0);  // Move cursor to second row
+ 191   2              lcd_send_str(distance_str);
+ 192   2              
+ 193   2              delay_ms(500);  // Wait before next measurement
+ 194   2          }
+ 195   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    541    ----
+   CONSTANT SIZE    =     12    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      2      20
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
